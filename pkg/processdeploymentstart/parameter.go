@@ -39,11 +39,11 @@ func (this *ProcessDeploymentStart) getProcessStartVariables(task model.CamundaE
 	for keyWithPrefix, value := range task.Variables {
 		if strings.HasPrefix(keyWithPrefix, prefix) {
 			key := strings.TrimPrefix(keyWithPrefix, prefix)
+			if result == nil {
+				result = map[string]interface{}{}
+			}
 			str, ok := value.Value.(string)
 			if ok {
-				if result == nil {
-					result = map[string]interface{}{}
-				}
 				var temp interface{}
 				err := json.Unmarshal([]byte(str), &temp)
 				if err != nil {
@@ -51,6 +51,8 @@ func (this *ProcessDeploymentStart) getProcessStartVariables(task model.CamundaE
 				} else {
 					result[key] = temp
 				}
+			} else {
+				result[key] = value.Value
 			}
 		}
 	}
