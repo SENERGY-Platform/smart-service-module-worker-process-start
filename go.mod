@@ -2,7 +2,7 @@ module github.com/SENERGY-Platform/smart-service-module-worker-process-start
 
 go 1.19
 
-require github.com/SENERGY-Platform/smart-service-module-worker-lib v0.0.0-20221221115706-e33fe6961783
+require github.com/SENERGY-Platform/smart-service-module-worker-lib v0.0.0-20221222120017-1cf17dd296a4
 
 require (
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
