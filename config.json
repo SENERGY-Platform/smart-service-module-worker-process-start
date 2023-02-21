@@ -1,6 +1,8 @@
 {
     "process_engine_wrapper_url": "",
+    "process_sync_url": "",
     "worker_param_prefix": "process_deployment_start.",
+    "process_deployment_module_type": "process_deployment",
 
     "smart_service_repository_url": "",
     "camunda_url": "",

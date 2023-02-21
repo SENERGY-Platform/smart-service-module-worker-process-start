@@ -67,3 +67,35 @@ type ProcessInstance struct {
 	Suspended      bool   `json:"suspended,omitempty"`
 	TenantId       string `json:"tenantId,omitempty"`
 }
+
+func (this *ProcessDeploymentStart) StartFog(token auth.Token, hubId string, deploymentId string, inputs map[string]interface{}) error {
+	query := ""
+	if inputs != nil && len(inputs) > 0 {
+		values := url.Values{}
+		for key, value := range inputs {
+			val, err := json.Marshal(value)
+			if err != nil {
+				return err
+			}
+			values.Add(key, string(val))
+		}
+		query = "?" + values.Encode()
+	}
+	req, err := http.NewRequest("GET", this.config.ProcessSyncUrl+"/deployments/"+url.PathEscape(hubId)+"/"+url.PathEscape(deploymentId)+"/start"+query, nil)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Authorization", token.Jwt())
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 300 {
+		temp, _ := io.ReadAll(resp.Body)
+		err = errors.New(string(temp))
+		return err
+	}
+	return err
+}

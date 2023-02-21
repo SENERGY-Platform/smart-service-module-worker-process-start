@@ -40,6 +40,7 @@ type ProcessDeploymentStart struct {
 type SmartServiceRepo interface {
 	GetInstanceUser(instanceId string) (userId string, err error)
 	UseModuleDeleteInfo(info model.ModuleDeleteInfo) error
+	ListExistingModules(processInstanceId string, query model.ModulQuery) (result []model.SmartServiceModule, err error)
 }
 
 func (this *ProcessDeploymentStart) Do(task model.CamundaExternalTask) (modules []model.Module, outputs map[string]interface{}, err error) {
@@ -49,40 +50,87 @@ func (this *ProcessDeploymentStart) Do(task model.CamundaExternalTask) (modules 
 	}
 	inputs := this.getProcessStartVariables(task)
 
-	userId, err := this.smartServiceRepo.GetInstanceUser(task.ProcessInstanceId)
+	existingModules, err := this.smartServiceRepo.ListExistingModules(task.ProcessInstanceId, model.ModulQuery{})
 	if err != nil {
-		log.Println("ERROR: unable to get instance user", err)
+		log.Println("ERROR: unable to get existing modules", err)
 		return modules, outputs, err
 	}
+	userId := ""
+	isFog := false
+	fogHub := ""
+	for _, m := range existingModules {
+		userId = m.UserId
+		if m.ModuleType == this.config.ProcessDeploymentModuleType && m.ModuleData["process_deployment_id"] == deploymentId {
+			var ok bool
+			isFog, ok = m.ModuleData["is_fog_deployment"].(bool)
+			if !ok {
+				isFog = false
+			}
+			if isFog {
+				fogHub, ok = m.ModuleData["fog_hub"].(string)
+				if !ok {
+					fogHub = ""
+				}
+			}
+		}
+	}
+
+	if userId == "" {
+		userId, err = this.smartServiceRepo.GetInstanceUser(task.ProcessInstanceId)
+		if err != nil {
+			log.Println("ERROR: unable to get instance user", err)
+			return modules, outputs, err
+		}
+	}
+
 	token, err := this.auth.ExchangeUserToken(userId)
 	if err != nil {
 		log.Println("ERROR: unable to exchange user token", err)
 		return modules, outputs, err
 	}
-	instance, err := this.Start(token, deploymentId, inputs)
-	if err != nil {
-		log.Println("ERROR: unable to prepare process deployment", err)
-		return modules, outputs, err
-	}
+	if isFog {
+		err = this.StartFog(token, fogHub, deploymentId, inputs)
+		if err != nil {
+			log.Println("ERROR: unable to start fog process", err)
+			return modules, outputs, err
+		}
 
-	moduleData := map[string]interface{}{
-		"process_instance_id": instance.Id,
-	}
-
-	return []model.Module{{
-			Id:               this.getModuleId(task),
-			ProcesInstanceId: task.ProcessInstanceId,
-			SmartServiceModuleInit: model.SmartServiceModuleInit{
-				DeleteInfo: &model.ModuleDeleteInfo{
-					Url:    this.config.ProcessEngineWrapperUrl + "/v2/process-instances/" + url.PathEscape(instance.Id),
-					UserId: userId,
+		return []model.Module{{
+				Id:               this.getModuleId(task),
+				ProcesInstanceId: task.ProcessInstanceId,
+				SmartServiceModuleInit: model.SmartServiceModuleInit{
+					DeleteInfo: nil,
+					ModuleType: this.libConfig.CamundaWorkerTopic,
+					ModuleData: map[string]interface{}{},
 				},
-				ModuleType: this.libConfig.CamundaWorkerTopic,
-				ModuleData: moduleData,
-			},
-		}},
-		map[string]interface{}{"process_instance_id": instance.Id},
-		err
+			}},
+			map[string]interface{}{},
+			err
+	} else {
+		instance, err := this.Start(token, deploymentId, inputs)
+		if err != nil {
+			log.Println("ERROR: unable to start process", err)
+			return modules, outputs, err
+		}
+		moduleData := map[string]interface{}{
+			"process_instance_id": instance.Id,
+		}
+
+		return []model.Module{{
+				Id:               this.getModuleId(task),
+				ProcesInstanceId: task.ProcessInstanceId,
+				SmartServiceModuleInit: model.SmartServiceModuleInit{
+					DeleteInfo: &model.ModuleDeleteInfo{
+						Url:    this.config.ProcessEngineWrapperUrl + "/v2/process-instances/" + url.PathEscape(instance.Id),
+						UserId: userId,
+					},
+					ModuleType: this.libConfig.CamundaWorkerTopic,
+					ModuleData: moduleData,
+				},
+			}},
+			map[string]interface{}{"process_instance_id": instance.Id},
+			err
+	}
 }
 
 func (this *ProcessDeploymentStart) Undo(modules []model.Module, reason error) {

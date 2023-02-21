@@ -17,6 +17,8 @@
 package processdeploymentstart
 
 type Config struct {
-	ProcessEngineWrapperUrl string `json:"process_engine_wrapper_url"`
-	WorkerParamPrefix       string `json:"worker_param_prefix"`
+	ProcessEngineWrapperUrl     string `json:"process_engine_wrapper_url"`
+	ProcessSyncUrl              string `json:"process_sync_url"`
+	WorkerParamPrefix           string `json:"worker_param_prefix"`
+	ProcessDeploymentModuleType string `json:"process_deployment_module_type"`
 }
