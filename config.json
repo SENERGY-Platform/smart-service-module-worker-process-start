@@ -1,6 +1,6 @@
 {
     "process_engine_wrapper_url": "",
-    "process_sync_url": "",
+    "fog_process_deployment_url": "",
     "worker_param_prefix": "process_deployment_start.",
     "process_deployment_module_type": "process_deployment",
 

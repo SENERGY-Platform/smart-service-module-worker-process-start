@@ -81,7 +81,7 @@ func (this *ProcessDeploymentStart) StartFog(token auth.Token, hubId string, dep
 		}
 		query = "?" + values.Encode()
 	}
-	req, err := http.NewRequest("GET", this.config.ProcessSyncUrl+"/deployments/"+url.PathEscape(hubId)+"/"+url.PathEscape(deploymentId)+"/start"+query, nil)
+	req, err := http.NewRequest("GET", this.config.FogProcessDeploymentUrl+"/deployments/"+url.PathEscape(hubId)+"/"+url.PathEscape(deploymentId)+"/start"+query, nil)
 	if err != nil {
 		return err
 	}
