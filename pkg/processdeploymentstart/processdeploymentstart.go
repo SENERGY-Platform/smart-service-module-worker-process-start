@@ -18,12 +18,12 @@ package processdeploymentstart
 
 import (
 	"errors"
+	"net/url"
+	"runtime/debug"
+
 	"github.com/SENERGY-Platform/smart-service-module-worker-lib/pkg/auth"
 	"github.com/SENERGY-Platform/smart-service-module-worker-lib/pkg/configuration"
 	"github.com/SENERGY-Platform/smart-service-module-worker-lib/pkg/model"
-	"log"
-	"net/url"
-	"runtime/debug"
 )
 
 func New(config Config, libConfig configuration.Config, auth *auth.Auth, smartServiceRepo SmartServiceRepo) *ProcessDeploymentStart {
@@ -52,7 +52,7 @@ func (this *ProcessDeploymentStart) Do(task model.CamundaExternalTask) (modules 
 
 	existingModules, err := this.smartServiceRepo.ListExistingModules(task.ProcessInstanceId, model.ModulQuery{})
 	if err != nil {
-		log.Println("ERROR: unable to get existing modules", err)
+		this.libConfig.GetLogger().Error("ERROR: unable to get existing modules", "error", err)
 		return modules, outputs, err
 	}
 	userId := ""
@@ -78,20 +78,20 @@ func (this *ProcessDeploymentStart) Do(task model.CamundaExternalTask) (modules 
 	if userId == "" {
 		userId, err = this.smartServiceRepo.GetInstanceUser(task.ProcessInstanceId)
 		if err != nil {
-			log.Println("ERROR: unable to get instance user", err)
+			this.libConfig.GetLogger().Error("ERROR: unable to get instance user", "error", err)
 			return modules, outputs, err
 		}
 	}
 
 	token, err := this.auth.ExchangeUserToken(userId)
 	if err != nil {
-		log.Println("ERROR: unable to exchange user token", err)
+		this.libConfig.GetLogger().Error("ERROR: unable to exchange user token", "error", err)
 		return modules, outputs, err
 	}
 	if isFog {
 		err = this.StartFog(token, fogHub, deploymentId, inputs)
 		if err != nil {
-			log.Println("ERROR: unable to start fog process", err)
+			this.libConfig.GetLogger().Error("ERROR: unable to start fog process", "error", err)
 			return modules, outputs, err
 		}
 
@@ -109,7 +109,7 @@ func (this *ProcessDeploymentStart) Do(task model.CamundaExternalTask) (modules 
 	} else {
 		instance, err := this.Start(token, deploymentId, inputs)
 		if err != nil {
-			log.Println("ERROR: unable to start process", err)
+			this.libConfig.GetLogger().Error("ERROR: unable to start process", "error", err)
 			return modules, outputs, err
 		}
 		moduleData := map[string]interface{}{
@@ -134,13 +134,12 @@ func (this *ProcessDeploymentStart) Do(task model.CamundaExternalTask) (modules 
 }
 
 func (this *ProcessDeploymentStart) Undo(modules []model.Module, reason error) {
-	log.Println("UNDO:", reason)
+	this.libConfig.GetLogger().Debug("undo", "reason", reason)
 	for _, module := range modules {
 		if module.DeleteInfo != nil {
 			err := this.smartServiceRepo.UseModuleDeleteInfo(*module.DeleteInfo)
 			if err != nil {
-				log.Println("ERROR:", err)
-				debug.PrintStack()
+				this.libConfig.GetLogger().Error("ERROR: unable to use module delete info", "error", err, "stack", string(debug.Stack()))
 			}
 		}
 	}
