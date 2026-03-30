@@ -24,6 +24,7 @@ import (
 	"github.com/SENERGY-Platform/smart-service-module-worker-lib/pkg/auth"
 	"github.com/SENERGY-Platform/smart-service-module-worker-lib/pkg/configuration"
 	"github.com/SENERGY-Platform/smart-service-module-worker-lib/pkg/model"
+	"github.com/google/uuid"
 )
 
 func New(config Config, libConfig configuration.Config, auth *auth.Auth, smartServiceRepo SmartServiceRepo) *ProcessDeploymentStart {
@@ -83,37 +84,46 @@ func (this *ProcessDeploymentStart) Do(task model.CamundaExternalTask) (modules 
 		}
 	}
 
+	businessKey := uuid.NewString()
+
 	token, err := this.auth.ExchangeUserToken(userId)
 	if err != nil {
 		this.libConfig.GetLogger().Error("ERROR: unable to exchange user token", "error", err)
 		return modules, outputs, err
 	}
 	if isFog {
-		err = this.StartFog(token, fogHub, deploymentId, inputs)
+		err = this.StartFog(token, fogHub, deploymentId, inputs, businessKey)
 		if err != nil {
 			this.libConfig.GetLogger().Error("ERROR: unable to start fog process", "error", err)
 			return modules, outputs, err
 		}
+		businessKey = "wardened:" + businessKey //process-sync will prefix the business-key to identify wardened processes
 
 		return []model.Module{{
 				Id:               this.getModuleId(task),
 				ProcesInstanceId: task.ProcessInstanceId,
 				SmartServiceModuleInit: model.SmartServiceModuleInit{
-					DeleteInfo: nil,
+					DeleteInfo: &model.ModuleDeleteInfo{
+						Url:    this.config.ProcessSyncUrl + "/process-instances-by-business-key/" + url.PathEscape(fogHub) + "/" + url.PathEscape(businessKey),
+						UserId: userId,
+					},
 					ModuleType: this.libConfig.CamundaWorkerTopic,
-					ModuleData: map[string]interface{}{},
+					ModuleData: map[string]interface{}{
+						"business_key": businessKey,
+					},
 				},
 			}},
 			map[string]interface{}{},
 			err
 	} else {
-		instance, err := this.Start(token, deploymentId, inputs)
+		instance, err := this.Start(token, deploymentId, inputs, businessKey)
 		if err != nil {
 			this.libConfig.GetLogger().Error("ERROR: unable to start process", "error", err)
 			return modules, outputs, err
 		}
 		moduleData := map[string]interface{}{
 			"process_instance_id": instance.Id,
+			"business_key":        businessKey,
 		}
 
 		return []model.Module{{
@@ -121,14 +131,17 @@ func (this *ProcessDeploymentStart) Do(task model.CamundaExternalTask) (modules 
 				ProcesInstanceId: task.ProcessInstanceId,
 				SmartServiceModuleInit: model.SmartServiceModuleInit{
 					DeleteInfo: &model.ModuleDeleteInfo{
-						Url:    this.config.ProcessEngineWrapperUrl + "/v2/process-instances/" + url.PathEscape(instance.Id),
+						Url:    this.config.ProcessEngineWrapperUrl + "/v2/process-instances-by-business-key/" + url.PathEscape(businessKey),
 						UserId: userId,
 					},
 					ModuleType: this.libConfig.CamundaWorkerTopic,
 					ModuleData: moduleData,
 				},
 			}},
-			map[string]interface{}{"process_instance_id": instance.Id},
+			map[string]interface{}{
+				"process_instance_id": instance.Id,
+				"business_key":        businessKey,
+			},
 			err
 	}
 }

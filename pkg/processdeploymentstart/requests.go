@@ -19,16 +19,18 @@ package processdeploymentstart
 import (
 	"encoding/json"
 	"errors"
-	"github.com/SENERGY-Platform/smart-service-module-worker-lib/pkg/auth"
 	"io"
 	"net/http"
 	"net/url"
+
+	"github.com/SENERGY-Platform/smart-service-module-worker-lib/pkg/auth"
 )
 
-func (this *ProcessDeploymentStart) Start(token auth.Token, deploymentId string, inputs map[string]interface{}) (instance ProcessInstance, err error) {
+func (this *ProcessDeploymentStart) Start(token auth.Token, deploymentId string, inputs map[string]interface{}, businessKey string) (instance ProcessInstance, err error) {
 	query := ""
 	if inputs != nil && len(inputs) > 0 {
 		values := url.Values{}
+		values.Add("business_key", businessKey)
 		for key, value := range inputs {
 			val, err := json.Marshal(value)
 			if err != nil {
@@ -68,10 +70,11 @@ type ProcessInstance struct {
 	TenantId       string `json:"tenantId,omitempty"`
 }
 
-func (this *ProcessDeploymentStart) StartFog(token auth.Token, hubId string, deploymentId string, inputs map[string]interface{}) error {
+func (this *ProcessDeploymentStart) StartFog(token auth.Token, hubId string, deploymentId string, inputs map[string]interface{}, businessKey string) error {
 	query := ""
 	if inputs != nil && len(inputs) > 0 {
 		values := url.Values{}
+		values.Add("business_key", businessKey)
 		for key, value := range inputs {
 			val, err := json.Marshal(value)
 			if err != nil {
