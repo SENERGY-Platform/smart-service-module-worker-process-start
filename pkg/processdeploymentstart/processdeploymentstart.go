@@ -110,6 +110,7 @@ func (this *ProcessDeploymentStart) Do(task model.CamundaExternalTask) (modules 
 					ModuleType: this.libConfig.CamundaWorkerTopic,
 					ModuleData: map[string]interface{}{
 						"business_key": businessKey,
+						"fog_hub":      fogHub,
 					},
 				},
 			}},

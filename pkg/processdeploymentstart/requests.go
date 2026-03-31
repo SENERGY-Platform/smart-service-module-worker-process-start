@@ -23,6 +23,7 @@ import (
 	"net/http"
 	"net/url"
 
+	"github.com/SENERGY-Platform/camunda-engine-wrapper/lib/model"
 	"github.com/SENERGY-Platform/smart-service-module-worker-lib/pkg/auth"
 )
 
@@ -101,4 +102,26 @@ func (this *ProcessDeploymentStart) StartFog(token auth.Token, hubId string, dep
 		return err
 	}
 	return err
+}
+
+func (this *ProcessDeploymentStart) GetFogProcessInstances(token auth.Token, hubId string, businessKey string) (result model.HistoricProcessInstances, err error) {
+	query := url.Values{"network_id": {hubId}, "business_key": {businessKey}}
+	req, err := http.NewRequest("GET", this.config.ProcessSyncUrl+"/history/process-instances?"+query.Encode(), nil)
+	if err != nil {
+		return result, err
+	}
+	req.Header.Set("Authorization", token.Jwt())
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return result, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 300 {
+		temp, _ := io.ReadAll(resp.Body)
+		err = errors.New(resp.Status + ": " + string(temp))
+		return result, err
+	}
+	err = json.NewDecoder(resp.Body).Decode(&result)
+	return result, err
 }

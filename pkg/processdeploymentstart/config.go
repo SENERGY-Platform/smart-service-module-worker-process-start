@@ -22,4 +22,6 @@ type Config struct {
 	ProcessSyncUrl              string `json:"process_sync_url"`
 	WorkerParamPrefix           string `json:"worker_param_prefix"`
 	ProcessDeploymentModuleType string `json:"process_deployment_module_type"`
+
+	HealthCheckInterval string `json:"health_check_interval"`
 }
