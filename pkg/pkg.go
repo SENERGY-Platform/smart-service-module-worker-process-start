@@ -60,15 +60,20 @@ func Start(ctx context.Context, wg *sync.WaitGroup, config processdeploymentstar
 			var found bool
 			if isFogDeployment {
 				found, state, err = handler.CheckFogProcess(token, fogHubId, businessKey)
+				if err != nil {
+					return nil, err
+				}
+				if !found {
+					return fmt.Errorf("unable to find process instance with networkId = %v and businessKey = %v", fogHubId, businessKey), nil
+				}
 			} else {
 				found, state, err = handler.CheckProcess(token, businessKey)
-			}
-
-			if err != nil {
-				return nil, err
-			}
-			if !found {
-				return fmt.Errorf("process instance with business key %v not found", businessKey), nil
+				if err != nil {
+					return nil, err
+				}
+				if !found {
+					return fmt.Errorf("process instance with business key %v not found", businessKey), nil
+				}
 			}
 
 			if state == processdeploymentstart.Active {
