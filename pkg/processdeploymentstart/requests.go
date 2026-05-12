@@ -28,19 +28,16 @@ import (
 )
 
 func (this *ProcessDeploymentStart) Start(token auth.Token, deploymentId string, inputs map[string]interface{}, businessKey string) (instance ProcessInstance, err error) {
-	query := ""
-	if inputs != nil && len(inputs) > 0 {
-		values := url.Values{}
-		values.Add("business_key", businessKey)
-		for key, value := range inputs {
-			val, err := json.Marshal(value)
-			if err != nil {
-				return instance, err
-			}
-			values.Add(key, string(val))
+	values := url.Values{}
+	values.Add("business_key", businessKey)
+	for key, value := range inputs {
+		val, err := json.Marshal(value)
+		if err != nil {
+			return instance, err
 		}
-		query = "?" + values.Encode()
+		values.Add(key, string(val))
 	}
+	query := "?" + values.Encode()
 	req, err := http.NewRequest("GET", this.config.ProcessEngineWrapperUrl+"/v2/deployments/"+url.PathEscape(deploymentId)+"/start"+query, nil)
 	if err != nil {
 		return instance, err
@@ -72,19 +69,16 @@ type ProcessInstance struct {
 }
 
 func (this *ProcessDeploymentStart) StartFog(token auth.Token, hubId string, deploymentId string, inputs map[string]interface{}, businessKey string) error {
-	query := ""
-	if inputs != nil && len(inputs) > 0 {
-		values := url.Values{}
-		values.Add("business_key", businessKey)
-		for key, value := range inputs {
-			val, err := json.Marshal(value)
-			if err != nil {
-				return err
-			}
-			values.Add(key, string(val))
+	values := url.Values{}
+	values.Add("business_key", businessKey)
+	for key, value := range inputs {
+		val, err := json.Marshal(value)
+		if err != nil {
+			return err
 		}
-		query = "?" + values.Encode()
+		values.Add(key, string(val))
 	}
+	query := "?" + values.Encode()
 	req, err := http.NewRequest("GET", this.config.FogProcessDeploymentUrl+"/deployments/"+url.PathEscape(hubId)+"/"+url.PathEscape(deploymentId)+"/start"+query, nil)
 	if err != nil {
 		return err
