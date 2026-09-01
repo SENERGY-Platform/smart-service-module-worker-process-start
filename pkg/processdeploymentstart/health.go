@@ -17,12 +17,14 @@
 package processdeploymentstart
 
 import (
+	"context"
+
 	"github.com/SENERGY-Platform/camunda-engine-wrapper/lib/client"
 	"github.com/SENERGY-Platform/smart-service-module-worker-lib/pkg/auth"
 )
 
-func (this *ProcessDeploymentStart) CheckFogProcess(token auth.Token, hubId string, businessKey string) (found bool, state State, err error) {
-	instances, err := this.GetFogProcessInstances(token, hubId, businessKey)
+func (this *ProcessDeploymentStart) CheckFogProcess(ctx context.Context, token auth.Token, hubId string, businessKey string) (found bool, state State, err error) {
+	instances, err := this.GetFogProcessInstances(ctx, token, hubId, businessKey)
 	if err != nil {
 		return found, state, err
 	}
@@ -52,6 +54,8 @@ const (
 	Terminated
 )
 
+// CheckProcess takes no context: it does its request through camunda-engine-wrapper/lib/client,
+// which has no context aware method, so there is nothing to propagate a trace context to.
 func (this *ProcessDeploymentStart) CheckProcess(token auth.Token, businessKey string) (found bool, state State, err error) {
 	instances, err, _ := client.New(this.config.ProcessEngineWrapperUrl).GetHistoricProcessInstances(token.Jwt(), client.InstanceListOptions{
 		BusinessKey: businessKey,

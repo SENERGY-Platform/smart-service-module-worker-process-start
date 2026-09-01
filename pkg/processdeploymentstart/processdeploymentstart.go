@@ -17,6 +17,7 @@
 package processdeploymentstart
 
 import (
+	"context"
 	"errors"
 	"net/url"
 	"runtime/debug"
@@ -39,21 +40,21 @@ type ProcessDeploymentStart struct {
 }
 
 type SmartServiceRepo interface {
-	GetInstanceUser(instanceId string) (userId string, err error)
-	UseModuleDeleteInfo(info model.ModuleDeleteInfo) error
-	ListExistingModules(processInstanceId string, query model.ModulQuery) (result []model.SmartServiceModule, err error)
+	GetInstanceUser(ctx context.Context, instanceId string) (userId string, err error)
+	UseModuleDeleteInfo(ctx context.Context, info model.ModuleDeleteInfo) error
+	ListExistingModules(ctx context.Context, processInstanceId string, query model.ModulQuery) (result []model.SmartServiceModule, err error)
 }
 
-func (this *ProcessDeploymentStart) Do(task model.CamundaExternalTask) (modules []model.Module, outputs map[string]interface{}, err error) {
+func (this *ProcessDeploymentStart) Do(ctx context.Context, task model.CamundaExternalTask) (modules []model.Module, outputs map[string]interface{}, err error) {
 	deploymentId := this.getProcessDeploymentId(task)
 	if deploymentId == "" {
 		return modules, outputs, errors.New("missing process deployment id")
 	}
 	inputs := this.getProcessStartVariables(task)
 
-	existingModules, err := this.smartServiceRepo.ListExistingModules(task.ProcessInstanceId, model.ModulQuery{})
+	existingModules, err := this.smartServiceRepo.ListExistingModules(ctx, task.ProcessInstanceId, model.ModulQuery{})
 	if err != nil {
-		this.libConfig.GetLogger().Error("ERROR: unable to get existing modules", "error", err)
+		this.libConfig.GetLogger().ErrorContext(ctx, "ERROR: unable to get existing modules", "error", err)
 		return modules, outputs, err
 	}
 	userId := ""
@@ -77,9 +78,9 @@ func (this *ProcessDeploymentStart) Do(task model.CamundaExternalTask) (modules 
 	}
 
 	if userId == "" {
-		userId, err = this.smartServiceRepo.GetInstanceUser(task.ProcessInstanceId)
+		userId, err = this.smartServiceRepo.GetInstanceUser(ctx, task.ProcessInstanceId)
 		if err != nil {
-			this.libConfig.GetLogger().Error("ERROR: unable to get instance user", "error", err)
+			this.libConfig.GetLogger().ErrorContext(ctx, "ERROR: unable to get instance user", "error", err)
 			return modules, outputs, err
 		}
 	}
@@ -88,13 +89,13 @@ func (this *ProcessDeploymentStart) Do(task model.CamundaExternalTask) (modules 
 
 	token, err := this.auth.ExchangeUserToken(userId)
 	if err != nil {
-		this.libConfig.GetLogger().Error("ERROR: unable to exchange user token", "error", err)
+		this.libConfig.GetLogger().ErrorContext(ctx, "ERROR: unable to exchange user token", "error", err)
 		return modules, outputs, err
 	}
 	if isFog {
-		err = this.StartFog(token, fogHub, deploymentId, inputs, businessKey)
+		err = this.StartFog(ctx, token, fogHub, deploymentId, inputs, businessKey)
 		if err != nil {
-			this.libConfig.GetLogger().Error("ERROR: unable to start fog process", "error", err)
+			this.libConfig.GetLogger().ErrorContext(ctx, "ERROR: unable to start fog process", "error", err)
 			return modules, outputs, err
 		}
 		businessKey = "wardened:" + businessKey //process-sync will prefix the business-key to identify wardened processes
@@ -117,9 +118,9 @@ func (this *ProcessDeploymentStart) Do(task model.CamundaExternalTask) (modules 
 			map[string]interface{}{},
 			err
 	} else {
-		instance, err := this.Start(token, deploymentId, inputs, businessKey)
+		instance, err := this.Start(ctx, token, deploymentId, inputs, businessKey)
 		if err != nil {
-			this.libConfig.GetLogger().Error("ERROR: unable to start process", "error", err)
+			this.libConfig.GetLogger().ErrorContext(ctx, "ERROR: unable to start process", "error", err)
 			return modules, outputs, err
 		}
 		moduleData := map[string]interface{}{
@@ -147,13 +148,13 @@ func (this *ProcessDeploymentStart) Do(task model.CamundaExternalTask) (modules 
 	}
 }
 
-func (this *ProcessDeploymentStart) Undo(modules []model.Module, reason error) {
-	this.libConfig.GetLogger().Debug("undo", "reason", reason)
+func (this *ProcessDeploymentStart) Undo(ctx context.Context, modules []model.Module, reason error) {
+	this.libConfig.GetLogger().DebugContext(ctx, "undo", "reason", reason)
 	for _, module := range modules {
 		if module.DeleteInfo != nil {
-			err := this.smartServiceRepo.UseModuleDeleteInfo(*module.DeleteInfo)
+			err := this.smartServiceRepo.UseModuleDeleteInfo(ctx, *module.DeleteInfo)
 			if err != nil {
-				this.libConfig.GetLogger().Error("ERROR: unable to use module delete info", "error", err, "stack", string(debug.Stack()))
+				this.libConfig.GetLogger().ErrorContext(ctx, "ERROR: unable to use module delete info", "error", err, "stack", string(debug.Stack()))
 			}
 		}
 	}

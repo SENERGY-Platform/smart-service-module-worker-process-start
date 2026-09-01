@@ -17,6 +17,7 @@
 package processdeploymentstart
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
@@ -24,10 +25,11 @@ import (
 	"net/url"
 
 	"github.com/SENERGY-Platform/camunda-engine-wrapper/lib/model"
+	"github.com/SENERGY-Platform/gin-middleware/otelx"
 	"github.com/SENERGY-Platform/smart-service-module-worker-lib/pkg/auth"
 )
 
-func (this *ProcessDeploymentStart) Start(token auth.Token, deploymentId string, inputs map[string]interface{}, businessKey string) (instance ProcessInstance, err error) {
+func (this *ProcessDeploymentStart) Start(ctx context.Context, token auth.Token, deploymentId string, inputs map[string]interface{}, businessKey string) (instance ProcessInstance, err error) {
 	values := url.Values{}
 	values.Add("business_key", businessKey)
 	for key, value := range inputs {
@@ -39,6 +41,10 @@ func (this *ProcessDeploymentStart) Start(token auth.Token, deploymentId string,
 	}
 	query := "?" + values.Encode()
 	req, err := http.NewRequest("GET", this.config.ProcessEngineWrapperUrl+"/v2/deployments/"+url.PathEscape(deploymentId)+"/start"+query, nil)
+	if err != nil {
+		return instance, err
+	}
+	err = otelx.InjectContextToRequest(ctx, req)
 	if err != nil {
 		return instance, err
 	}
@@ -68,7 +74,7 @@ type ProcessInstance struct {
 	TenantId       string `json:"tenantId,omitempty"`
 }
 
-func (this *ProcessDeploymentStart) StartFog(token auth.Token, hubId string, deploymentId string, inputs map[string]interface{}, businessKey string) error {
+func (this *ProcessDeploymentStart) StartFog(ctx context.Context, token auth.Token, hubId string, deploymentId string, inputs map[string]interface{}, businessKey string) error {
 	values := url.Values{}
 	values.Add("business_key", businessKey)
 	for key, value := range inputs {
@@ -80,6 +86,10 @@ func (this *ProcessDeploymentStart) StartFog(token auth.Token, hubId string, dep
 	}
 	query := "?" + values.Encode()
 	req, err := http.NewRequest("GET", this.config.FogProcessDeploymentUrl+"/deployments/"+url.PathEscape(hubId)+"/"+url.PathEscape(deploymentId)+"/start"+query, nil)
+	if err != nil {
+		return err
+	}
+	err = otelx.InjectContextToRequest(ctx, req)
 	if err != nil {
 		return err
 	}
@@ -98,9 +108,13 @@ func (this *ProcessDeploymentStart) StartFog(token auth.Token, hubId string, dep
 	return err
 }
 
-func (this *ProcessDeploymentStart) GetFogProcessInstances(token auth.Token, hubId string, businessKey string) (result model.HistoricProcessInstances, err error) {
+func (this *ProcessDeploymentStart) GetFogProcessInstances(ctx context.Context, token auth.Token, hubId string, businessKey string) (result model.HistoricProcessInstances, err error) {
 	query := url.Values{"network_id": {hubId}, "business_key": {businessKey}}
 	req, err := http.NewRequest("GET", this.config.ProcessSyncUrl+"/history/process-instances?"+query.Encode(), nil)
+	if err != nil {
+		return result, err
+	}
+	err = otelx.InjectContextToRequest(ctx, req)
 	if err != nil {
 		return result, err
 	}
