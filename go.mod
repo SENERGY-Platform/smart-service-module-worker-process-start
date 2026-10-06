@@ -5,7 +5,7 @@ go 1.26
 require (
 	github.com/SENERGY-Platform/camunda-engine-wrapper v1.0.17
 	github.com/SENERGY-Platform/gin-middleware v0.14.1
-	github.com/SENERGY-Platform/smart-service-module-worker-lib v0.0.0-20260928072743-d2c820b76945
+	github.com/SENERGY-Platform/smart-service-module-worker-lib v0.0.0-20261006080333-b6af9a5986cb
 	github.com/google/uuid v1.6.0
 )
 
